@@ -18,6 +18,10 @@
 #include "libipc/utility/log.h"
 #include "libipc/memory/resource.h"
 
+#if defined(__ANDROID__)
+#include <ashm.h>
+#endif
+
 namespace {
 
 struct info_t {

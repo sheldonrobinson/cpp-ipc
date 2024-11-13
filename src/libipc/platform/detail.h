@@ -70,16 +70,6 @@
 
 #if __cplusplus >= 201703L
 
-namespace std {
-
-// deduction guides for std::unique_ptr
-template <typename T>
-unique_ptr(T* p) -> unique_ptr<T>;
-template <typename T, typename D>
-unique_ptr(T* p, D&& d) -> unique_ptr<T, std::decay_t<D>>;
-
-} // namespace std
-
 namespace ipc {
 namespace detail {
 

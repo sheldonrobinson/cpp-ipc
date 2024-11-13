@@ -47,9 +47,21 @@ target_include_directories(${PROJECT_NAME}
           $<$<BOOL:UNIX>:${LIBIPC_PROJECT_DIR}/src/libipc/platform/linux>)
 
 if(NOT MSVC)
-  target_link_libraries(${PROJECT_NAME} PUBLIC
-    $<$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},QNX>>:pthread>
-    $<$<NOT:$<OR:$<STREQUAL:${CMAKE_SYSTEM_NAME},Windows>,$<STREQUAL:${CMAKE_SYSTEM_NAME},QNX>>>:rt>)
+	if(NOT ANDROID)
+	  target_link_libraries(${PROJECT_NAME} PUBLIC
+		$<$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},QNX>>:pthread>
+		$<$<NOT:$<OR:$<STREQUAL:${CMAKE_SYSTEM_NAME},Windows>,$<STREQUAL:${CMAKE_SYSTEM_NAME},QNX>>>:rt>)
+	else()
+		target_link_libraries(${PROJECT_NAME} PUBLIC android)
+		target_link_options(${PROJECT_NAME} PUBLIC -pthread)
+	endif()
+endif()
+
+if(ANDROID)
+	find_path(ASHMEM_INCLUDE_DIR ashm.h S{CMAKE_INSTALL_PREFIX}/include)
+	find_file(ASHMEM_LIRARY libashmem.a S{CMAKE_INSTALL_PREFIX}/lib)
+	target_include_directories(${PROJECT_NAME} PRIVATE ${ASHMEM_INCLUDE_DIR})
+	target_link_libraries(${PROJECT_NAME} PRIVATE ${ASHMEM_LIRARY})
 endif()
 
 install(
