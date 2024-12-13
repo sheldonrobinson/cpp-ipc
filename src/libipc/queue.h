@@ -55,6 +55,14 @@ public:
     queue_conn(const queue_conn&) = delete;
     queue_conn& operator=(const queue_conn&) = delete;
 
+    void clear() noexcept {
+        elems_h_.clear();
+    }
+
+    static void clear_storage(char const *name) noexcept {
+        shm::handle::clear_storage(name);
+    }
+
     bool connected() const noexcept {
         return connected_ != 0;
     }
@@ -121,6 +129,11 @@ public:
         base_t::close();
         elems_ = queue_conn::template open<elems_t>(name);
         return elems_ != nullptr;
+    }
+
+    void clear() noexcept {
+        base_t::clear();
+        elems_ = nullptr;
     }
 
     elems_t       * elems()       noexcept { return elems_; }

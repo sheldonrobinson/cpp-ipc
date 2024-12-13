@@ -72,13 +72,16 @@ id_t acquire(char const * name, std::size_t size, unsigned mode) {
         flag |= O_CREAT;
         break;
     }
-    int fd = ::shm_open(op_name.c_str(), flag, S_IRUSR | S_IWUSR |
-                                               S_IRGRP | S_IWGRP |
+    int fd = ::shm_open(op_name.c_str(), flag, S_IRUSR | S_IWUSR | 
+                                               S_IRGRP | S_IWGRP | 
                                                S_IROTH | S_IWOTH);
     if (fd == -1) {
         ipc::error("fail shm_open[%d]: %s\n", errno, op_name.c_str());
         return nullptr;
     }
+    ::fchmod(fd, S_IRUSR | S_IWUSR | 
+                 S_IRGRP | S_IWGRP | 
+                 S_IROTH | S_IWOTH);
     auto ii = mem::alloc<id_info_t>();
     ii->fd_   = fd;
     ii->size_ = size;
@@ -157,7 +160,7 @@ void * get_mem(id_t id, std::size_t * size) {
     return mem;
 }
 
-std::int32_t release(id_t id) {
+std::int32_t release(id_t id) noexcept {
     if (id == nullptr) {
         ipc::error("fail release: invalid id (null)\n");
         return -1;
@@ -179,7 +182,7 @@ std::int32_t release(id_t id) {
     return ret;
 }
 
-void remove(id_t id) {
+void remove(id_t id) noexcept {
     if (id == nullptr) {
         ipc::error("fail remove: invalid id (null)\n");
         return;
@@ -192,7 +195,7 @@ void remove(id_t id) {
     }
 }
 
-void remove(char const * name) {
+void remove(char const * name) noexcept {
     if (!is_valid_string(name)) {
         ipc::error("fail remove: name is empty\n");
         return;

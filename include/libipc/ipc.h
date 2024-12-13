@@ -19,7 +19,7 @@ enum : unsigned {
 
 template <typename Flag>
 struct IPC_EXPORT chan_impl {
-    static ipc::handle_t inited();
+    static ipc::handle_t init_first();
 
     static bool connect   (ipc::handle_t * ph, char const * name, unsigned mode);
     static bool connect   (ipc::handle_t * ph, prefix, char const * name, unsigned mode);
@@ -29,8 +29,16 @@ struct IPC_EXPORT chan_impl {
 
     static char const * name(ipc::handle_t h);
 
-    static std::size_t recv_count(ipc::handle_t h);
-    static bool wait_for_recv(ipc::handle_t h, std::size_t r_count, std::uint64_t tm);
+    // Release memory without waiting for the connection to disconnect.
+    static void release(ipc::handle_t h) noexcept;
+
+    // Force cleanup of all shared memory storage that handles depend on.
+    static void clear(ipc::handle_t h) noexcept;
+    static void clear_storage(char const * name) noexcept;
+    static void clear_storage(prefix, char const * name) noexcept;
+
+    static std::size_t recv_count   (ipc::handle_t h);
+    static bool        wait_for_recv(ipc::handle_t h, std::size_t r_count, std::uint64_t tm);
 
     static bool   send(ipc::handle_t h, void const * data, std::size_t size, std::uint64_t tm);
     static buff_t recv(ipc::handle_t h, std::uint64_t tm);
@@ -44,7 +52,7 @@ class chan_wrapper {
 private:
     using detail_t = chan_impl<Flag>;
 
-    ipc::handle_t h_ = detail_t::inited();
+    ipc::handle_t h_ = detail_t::init_first();
     unsigned mode_   = ipc::sender;
     bool connected_  = false;
 
@@ -81,6 +89,28 @@ public:
 
     char const * name() const noexcept {
         return detail_t::name(h_);
+    }
+
+    // Release memory without waiting for the connection to disconnect.
+    void release() noexcept {
+        detail_t::release(h_);
+        h_ = nullptr;
+    }
+
+    // Clear shared memory files under opened handle.
+    void clear() noexcept {
+        detail_t::clear(h_);
+        h_ = nullptr;
+    }
+
+    // Clear shared memory files under a specific name.
+    static void clear_storage(char const * name) noexcept {
+        detail_t::clear_storage(name);
+    }
+
+    // Clear shared memory files under a specific name with a prefix.
+    static void clear_storage(prefix pref, char const * name) noexcept {
+        detail_t::clear_storage(pref, name);
     }
 
     ipc::handle_t handle() const noexcept {

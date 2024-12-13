@@ -136,6 +136,22 @@ struct conn_info_head {
         }
     }
 
+    void clear() noexcept {
+        cc_waiter_.clear();
+        wt_waiter_.clear();
+        rd_waiter_.clear();
+        acc_h_.clear();
+    }
+
+    static void clear_storage(char const * prefix, char const * name) noexcept {
+        auto p = ipc::make_string(prefix);
+        auto n = ipc::make_string(name);
+        ipc::detail::waiter::clear_storage(ipc::make_prefix(p, {"CC_CONN__", n}).c_str());
+        ipc::detail::waiter::clear_storage(ipc::make_prefix(p, {"WT_CONN__", n}).c_str());
+        ipc::detail::waiter::clear_storage(ipc::make_prefix(p, {"RD_CONN__", n}).c_str());
+        ipc::shm::handle::clear_storage(ipc::make_prefix(p, {"AC_CONN__", n}).c_str());
+    }
+
     void quit_waiting() {
         cc_waiter_.quit_waiting();
         wt_waiter_.quit_waiting();
@@ -379,11 +395,25 @@ struct queue_generator {
             conn_info_head::init();
             if (!que_.valid()) {
                 que_.open(ipc::make_prefix(prefix_, {
-                          "QU_CONN__",
-                          ipc::to_string(DataSize), "__",
-                          ipc::to_string(AlignSize), "__", 
-                          this->name_}).c_str());
+                          "QU_CONN__", 
+                          this->name_, 
+                          "__", ipc::to_string(DataSize), 
+                          "__", ipc::to_string(AlignSize)}).c_str());
             }
+        }
+
+        void clear() noexcept {
+            que_.clear();
+            conn_info_head::clear();
+        }
+
+        static void clear_storage(char const * prefix, char const * name) noexcept {
+            queue_t::clear_storage(ipc::make_prefix(ipc::make_string(prefix), {
+                                   "QU_CONN__", 
+                                   ipc::make_string(name), 
+                                   "__", ipc::to_string(DataSize), 
+                                   "__", ipc::to_string(AlignSize)}).c_str());
+            conn_info_head::clear_storage(prefix, name);
         }
 
         void disconnect_receiver() {
@@ -459,8 +489,7 @@ static bool reconnect(ipc::handle_t * ph, bool start_to_recv) {
     return que->ready_sending();
 }
 
-static void destroy(ipc::handle_t h) {
-    disconnect(h);
+static void destroy(ipc::handle_t h) noexcept {
     ipc::mem::free(info_of(h));
 }
 
@@ -703,7 +732,7 @@ using policy_t = ipc::policy::choose<ipc::circ::elem_array, Flag>;
 namespace ipc {
 
 template <typename Flag>
-ipc::handle_t chan_impl<Flag>::inited() {
+ipc::handle_t chan_impl<Flag>::init_first() {
     ipc::detail::waiter::init();
     return nullptr;
 }
@@ -730,6 +759,12 @@ void chan_impl<Flag>::disconnect(ipc::handle_t h) {
 
 template <typename Flag>
 void chan_impl<Flag>::destroy(ipc::handle_t h) {
+    disconnect(h);
+    detail_impl<policy_t<Flag>>::destroy(h);
+}
+
+template <typename Flag>
+void chan_impl<Flag>::release(ipc::handle_t h) noexcept {
     detail_impl<policy_t<Flag>>::destroy(h);
 }
 
@@ -737,6 +772,27 @@ template <typename Flag>
 char const * chan_impl<Flag>::name(ipc::handle_t h) {
     auto *info = detail_impl<policy_t<Flag>>::info_of(h);
     return (info == nullptr) ? nullptr : info->name_.c_str();
+}
+
+template <typename Flag>
+void chan_impl<Flag>::clear(ipc::handle_t h) noexcept {
+    disconnect(h);
+    using conn_info_t = typename detail_impl<policy_t<Flag>>::conn_info_t;
+    auto conn_info_p = static_cast<conn_info_t *>(h);
+    if (conn_info_p == nullptr) return;
+    conn_info_p->clear();
+    destroy(h);
+}
+
+template <typename Flag>
+void chan_impl<Flag>::clear_storage(char const * name) noexcept {
+    chan_impl<Flag>::clear_storage({nullptr}, name);
+}
+
+template <typename Flag>
+void chan_impl<Flag>::clear_storage(prefix pref, char const * name) noexcept {
+    using conn_info_t = typename detail_impl<policy_t<Flag>>::conn_info_t;
+    conn_info_t::clear_storage(pref.str, name);
 }
 
 template <typename Flag>
